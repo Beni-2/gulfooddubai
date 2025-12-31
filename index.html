@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FOODPhilippines | Gulfood 2026 Official Delegation</title>
+    <script src="https://cdn.tailwindcss.com/"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-font-smoothing: antialiased; }
+        
+        .hero-bg {
+            background-image: linear-gradient(rgba(6, 78, 59, 0.5), rgba(6, 78, 59, 0.5)), 
+                              url('gulfood.png');
+            background-size: cover;
+            background-position: center;
+        }
+        .card-anim { 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            border: 1px solid #f1f5f9; 
+            cursor: pointer;
+        }
+        .card-anim:hover { 
+            transform: translateY(-8px); 
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); 
+            border-color: #10b981; 
+            background-color: #f0fdf4;
+        }
+        .search-shadow { box-shadow: 0 10px 50px -10px rgba(0, 0, 0, 0.15); }
+        
+        #siteOverlay { transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        .scroll-wrapper {
+            overflow-y: auto;
+            height: 100%;
+            width: 100%;
+            background: #fff;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .shield-container {
+            position: relative;
+            width: 100%;
+            height: 4800px; 
+            overflow: hidden;
+        }
+
+        /* Interaction Shield: Locks frame but allows parent scroll */
+        .interaction-shield {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            cursor: default;
+            background: transparent;
+        }
+
+        iframe.full-page-view {
+            width: 100%;
+            height: 100%;
+            border: none;
+            pointer-events: none;
+        }
+
+        #backToTop {
+            transition: all 0.3s ease;
+            opacity: 0;
+            visibility: hidden;
+        }
+        #backToTop.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f8fafc;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #10b981;
+            border-radius: 10px;
+            border: 2px solid #f8fafc;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #059669;
+        }
+
+        /* Auto-scrolling Ticker Animation */
+        @keyframes ticker {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .ticker-animate {
+            display: flex;
+            width: max-content;
+            animation: ticker 45s linear infinite;
+        }
+        .ticker-animate.paused { animation-play-state: paused; }
+        .ticker-animate:hover { animation-play-state: paused; }
+        
+        .mini-chart-card {
+            flex: 0 0 280px;
+            height: 180px;
+            margin-right: 16px;
+            background: #fff;
+            border-radius: 20px;
+            border: 1px solid #f1f5f9;
+            overflow: hidden;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .click-capture {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            background: transparent;
+        }
+        .mini-chart-card:hover {
+            border-color: #10b981;
+            transform: translateY(-4px);
+            box-shadow: 0 15px 30px -5px rgba(16, 185, 129, 0.1);
+        }
+
+        #grid { min-height: 600px; }
+    </style>
+</head>
+<body class="bg-[#fcfcfd] text-gray-900 overflow-x-hidden">
+
+    <!-- REAL-TIME MARKET BAR -->
+    <div class="bg-emerald-950 text-white py-3 px-6 flex flex-col md:flex-row justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] border-b border-emerald-800 sticky top-0 z-[160] shadow-xl">
+        <div class="flex items-center gap-6 mb-3 md:mb-0">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-clock text-emerald-400 animate-pulse"></i>
+                <span id="liveClock">JANUARY 1, 2026 | 00:00:00</span>
+            </div>
+            <div class="flex items-center gap-2 border-l border-emerald-800 pl-6">
+                <i class="fas fa-dollar-sign text-yellow-400"></i>
+                <span>FOREX: <span id="forexValue" class="text-emerald-400">1 USD = 58.42 PHP</span></span>
+            </div>
+        </div>
+        <button onclick="refreshMarketData()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-full transition-all flex items-center gap-2 active:scale-95 shadow-lg group">
+            <i class="fas fa-sync-alt group-active:rotate-180 transition-transform duration-500" id="refreshIcon"></i> Synchronize PSEi Data
+        </button>
+    </div>
+
+    <!-- Floating Back to Top Button (Recursive Smooth Animation) -->
+    <button id="backToTop" aria-label="Back to Top" onclick="slowScrollToTop()" class="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-[90] bg-emerald-600 text-white w-12 h-12 rounded-full shadow-2xl flex items-center justify-center hover:bg-emerald-700 active:scale-95 transition-all">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <!-- Unified Pre-Entry Navigation Prompt (Continue/Cancel Buttons) -->
+    <div id="navConfirmation" class="fixed inset-0 z-[150] bg-emerald-950/80 hidden items-center justify-center p-4 md:p-6 backdrop-blur-md">
+        <div class="bg-white p-8 md:p-12 rounded-[40px] max-w-lg w-full text-center shadow-2xl border border-emerald-100">
+            <div class="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-8">
+                <i class="fas fa-external-link-alt text-2xl"></i>
+            </div>
+            <h3 class="text-2xl font-extrabold text-gray-900 mb-4 tracking-tighter uppercase leading-none">Agreement to Navigate</h3>
+            <p id="navPromptText" class="text-gray-500 mb-10 leading-relaxed px-4">You are navigating outside the main directory to a <strong>Protected Display Mode</strong>. Do you want to continue or cancel?</p>
+            <div class="flex flex-col sm:flex-row gap-4">
+                <button onclick="hideNavPrompt()" class="flex-1 bg-gray-50 text-gray-600 py-4 rounded-2xl font-bold hover:bg-gray-100 transition-colors uppercase text-xs tracking-widest order-2 sm:order-1">Cancel</button>
+                <button id="confirmEntryBtn" onclick="confirmEntry()" class="flex-1 bg-emerald-600 text-white py-4 rounded-2xl font-bold shadow-xl hover:bg-emerald-700 transition-colors uppercase text-xs tracking-widest order-1 sm:order-2">Continue</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Iframe Host Overlay (Display-Only / Scroll-Only Protection) -->
+    <div id="siteOverlay" class="fixed inset-0 z-[100] bg-black hidden flex-col opacity-0">
+        <!-- Floating Back Button (Inside View) -->
+        <button onclick="showConfirmation()" class="fixed bottom-8 right-8 z-[130] bg-white text-emerald-900 px-8 py-4 rounded-full shadow-2xl font-black flex items-center gap-3 border border-emerald-100 active:scale-95 transition-all hover:bg-emerald-50">
+            <i class="fas fa-arrow-left text-emerald-600"></i> Back to Main Page
+        </button>
+
+        <!-- Custom Exit Confirmation Modal -->
+        <div id="closeConfirmation" class="absolute inset-0 z-[140] bg-emerald-950/90 hidden items-center justify-center p-4 md:p-6 backdrop-blur-sm">
+            <div class="bg-white p-6 md:p-10 rounded-[30px] md:rounded-[40px] max-w-sm w-full text-center shadow-2xl border border-emerald-100">
+                <div class="w-12 h-12 md:w-16 md:h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <i class="fas fa-door-open text-xl md:text-2xl"></i>
+                </div>
+                <h3 class="text-xl md:text-2xl font-extrabold text-gray-900 mb-2 tracking-tighter uppercase leading-none">Exit View?</h3>
+                <p class="text-sm text-gray-500 mb-8 md:mb-10 leading-relaxed px-2 text-center">Agreement to exit the portal and return to the main landing page.</p>
+                <div class="flex flex-col gap-3">
+                    <button onclick="executeClose()" class="w-full bg-emerald-600 text-white py-3.5 md:py-4 rounded-xl md:rounded-2xl font-bold shadow-lg hover:bg-emerald-700 transition-colors uppercase text-xs tracking-widest">Yes, Go Back</button>
+                    <button onclick="hideConfirmation()" class="w-full bg-gray-50 text-gray-600 py-3.5 md:py-4 rounded-xl md:rounded-2xl font-bold hover:bg-gray-100 transition-colors uppercase text-xs tracking-widest">Stay</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Header Controls -->
+        <div class="relative z-[60] bg-emerald-950 text-white p-3 md:p-4 flex justify-between items-center border-b border-emerald-800 shadow-2xl">
+            <div class="flex items-center gap-3 overflow-hidden text-left">
+                <div class="w-2 h-2 md:w-3 md:h-3 shrink-0 rounded-full bg-emerald-400 animate-pulse"></div>
+                <div class="flex flex-col truncate">
+                    <span class="text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400 leading-none mb-1">Protected Display Mode</span>
+                    <span id="overlayLabel" class="text-[10px] md:text-xs font-bold opacity-40 truncate">Official Portal</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 md:gap-4 shrink-0">
+                <span class="text-[8px] md:text-[10px] text-emerald-500 uppercase font-bold hidden sm:block tracking-widest uppercase">Scrolling Active • Navigation Locked</span>
+                <button onclick="showConfirmation()" class="bg-red-500 hover:bg-red-600 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-lg md:rounded-xl font-bold transition-all flex items-center gap-2 text-[10px] md:text-sm shadow-lg active:scale-95 group">
+                    <i class="fas fa-times-circle sm:group-hover:rotate-90 transition-transform"></i> <span class="uppercase font-black">Exit</span>
+                </button>
+            </div>
+        </div>
+        
+        <div class="scroll-wrapper" id="overlayScrollParent">
+            <div class="shield-container">
+                <div class="interaction-shield"></div>
+                <iframe id="externalFrame" class="full-page-view" src="" sandbox="allow-scripts allow-same-origin" allowfullscreen tabindex="-1"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hero Section -->
+    <header class="hero-bg text-white py-16 md:py-24 px-6 relative overflow-hidden text-center">
+        <div class="max-w-7xl mx-auto relative z-10 text-center">
+            <div class="inline-flex items-center gap-2 bg-yellow-400 text-green-950 font-extrabold px-4 py-1.5 rounded-full text-[10px] md:text-xs mb-6 md:mb-8 uppercase tracking-widest shadow-lg">
+                Official 2026 Delegation
+            </div>
+            <h1 class="text-4xl sm:text-6xl md:text-8xl font-extrabold mb-4 md:mb-6 tracking-tighter leading-tight md:leading-none text-center uppercase">Gulfood 2026</h1>
+            <p class="text-base md:text-2xl text-emerald-100 font-light mb-8 md:mb-12 max-w-2xl mx-auto px-4 text-center">Premium, Halal-Certified, and Sustainable Innovations from the Philippines.</p>
+        </div>
+    </header>
+
+    <!-- Search Section -->
+    <div class="max-w-7xl mx-auto px-4 md:px-6 -mt-8 md:-mt-12 relative z-20">
+        <div class="bg-white rounded-[24px] md:rounded-[32px] p-4 md:p-8 search-shadow border border-gray-50">
+            <div class="relative group text-left">
+                <i class="fas fa-search absolute left-4 md:left-6 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-emerald-500 transition-colors text-lg md:text-xl"></i>
+                <input type="text" id="exhibitorSearch" 
+                    placeholder="Search companies, products, or types..." 
+                    class="w-full pl-12 md:pl-16 pr-4 md:pr-8 py-4 md:py-6 bg-gray-50 rounded-xl md:rounded-2xl border-none focus:ring-4 focus:ring-emerald-50 text-sm md:text-xl transition-all font-medium placeholder:text-gray-300">
+            </div>
+        </div>
+    </div>
+
+    <!-- Market Analysis Section -->
+    <section class="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-20 mt-6 md:mt-10 text-left">
+        <div class="bg-white rounded-[32px] md:rounded-[48px] p-6 md:p-12 shadow-sm border border-gray-100">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 md:gap-16 items-start">
+                <div>
+                    <span class="text-emerald-600 font-black uppercase tracking-[0.2em] text-[10px] mb-4 block text-left">Market Intelligence Feed</span>
+                    <h2 class="text-2xl md:text-4xl font-extrabold text-gray-900 mb-6 leading-tight text-left">Economic Pulse: <br class="hidden sm:block"><span class="text-emerald-600">Q4 2025 Intelligence</span></h2>
+                    <div class="space-y-6 text-gray-600 leading-relaxed text-left">
+                        <div class="bg-slate-50 border-l-4 border-emerald-500 p-4 md:p-6 rounded-r-2xl md:rounded-r-3xl mb-6 text-left">
+                            <ul class="space-y-4 text-left">
+                                <li class="text-[11px] md:text-xs border-b border-slate-100 pb-2 text-left">
+                                    <span class="font-bold text-gray-900 block uppercase text-[9px] mb-1">Dec 2025</span>
+                                    Rate cut signals support export expansion into 2026.
+                                </li>
+                                <li class="text-[11px] md:text-xs border-b border-slate-100 pb-2 text-left">
+                                    <span class="font-bold text-gray-900 block uppercase text-[9px] mb-1">Nov 2025</span>
+                                    PSEi Index holds strength near the 7,200 range.
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 md:gap-4">
+                            <div class="bg-emerald-50 p-4 md:p-6 rounded-2xl md:rounded-3xl">
+                                <p class="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-emerald-800 opacity-60 mb-1">PSEi Index</p>
+                                <p class="text-xl md:text-2xl font-black text-emerald-900">7,140</p>
+                            </div>
+                            <div class="bg-yellow-50 p-4 md:p-6 rounded-2xl md:rounded-3xl">
+                                <p class="text-[8px] md:text-[10px] font-black uppercase tracking-widest text-yellow-800 opacity-60 mb-1">Export Target</p>
+                                <p class="text-xl md:text-2xl font-black text-yellow-900">$7.8B</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="space-y-6 md:space-y-8 w-full text-left">
+                    <div class="bg-slate-50 p-4 md:p-8 rounded-[24px] md:rounded-[40px] border border-gray-100">
+                        <h4 class="text-center font-bold text-gray-500 text-[8px] md:text-[10px] uppercase tracking-[0.2em] mb-4 md:mb-6">Top Export Categories (Billion USD)</h4>
+                        <div class="relative h-[240px] md:h-[280px]">
+                            <canvas id="exportChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white p-4 md:p-8 rounded-[24px] md:rounded-[40px] border border-emerald-50 shadow-sm">
+                        <h4 class="text-center font-bold text-gray-500 text-[8px] md:text-[10px] uppercase tracking-[0.2em] mb-4 md:mb-6">Performance Trend Index</h4>
+                        <div class="relative h-[180px] md:h-[220px]">
+                            <canvas id="gdpChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Financial Support Ecosystem -->
+    <section class="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-20 text-left">
+        <div class="mb-10 px-2">
+            <span class="text-emerald-600 font-black uppercase tracking-[0.2em] text-[10px] mb-2 block">Institutional Support Ecosystem</span>
+            <h2 class="text-2xl md:text-4xl font-extrabold text-gray-900 leading-tight">Modernizing Export Facilities</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 text-left">
+            <div class="bg-white border border-gray-100 p-6 md:p-8 rounded-[30px] md:rounded-[40px] shadow-sm">
+                <div class="w-10 h-10 md:w-12 md:h-12 bg-emerald-100 text-emerald-600 rounded-xl md:rounded-2xl flex items-center justify-center mb-6"><i class="fas fa-university text-lg md:text-xl"></i></div>
+                <h4 class="text-lg md:text-xl font-black text-gray-900 mb-4 uppercase tracking-tighter">Banking & Loans</h4>
+                <ul class="space-y-4 text-[11px] md:text-xs text-gray-600">
+                    <li><strong class="text-gray-900 block mb-1 font-black">DBP ASENSO:</strong> Modernization loans for facility expansion and sustainable equipment.</li>
+                    <li><strong class="text-gray-900 block mb-1 font-black">LandBank I-RESCUE:</strong> Credit assistance for agri-manufacturing MSMEs.</li>
+                </ul>
+            </div>
+            <div class="bg-emerald-950 text-white p-6 md:p-8 rounded-[30px] md:rounded-[40px] shadow-xl relative overflow-hidden flex flex-col justify-center">
+                <h4 class="text-lg md:text-xl font-black mb-4 uppercase tracking-tighter">ASEAN Regional Support</h4>
+                <ul class="space-y-4 text-[11px] md:text-xs text-emerald-100/80">
+                    <li><strong class="text-white block mb-1 font-black">ADB Trade Finance:</strong> Regional credit lines to reduce trade risks.</li>
+                    <li><strong class="text-white block mb-1 font-black">ASEAN SME Academy:</strong> Trade standard capacity building.</li>
+                </ul>
+            </div>
+            <div class="bg-white border border-gray-100 p-6 md:p-8 rounded-[30px] md:rounded-[40px] shadow-sm sm:col-span-2 lg:col-span-1">
+                <div class="w-10 h-10 md:w-12 md:h-12 bg-yellow-100 text-yellow-600 rounded-xl md:rounded-2xl flex items-center justify-center mb-6"><i class="fas fa-shield-alt text-lg md:text-xl"></i></div>
+                <h4 class="text-lg md:text-xl font-black text-gray-900 mb-4 uppercase tracking-tighter">Security & Guarantees</h4>
+                <ul class="space-y-4 text-[11px] md:text-xs text-gray-600">
+                    <li><strong class="text-gray-900 block mb-1 font-black">PHILGUARANTEE:</strong> Strategic credit schemes for collateral-free loans.</li>
+                    <li><strong class="text-gray-900 block mb-1 font-black">DOST SET-UP:</strong> Technical grants for science-driven packaging.</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Exhibitor Directory -->
+    <main class="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-20 bg-[#f9fbfc] rounded-[32px] md:rounded-[48px] text-left">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 md:mb-12 gap-6 px-2">
+            <div>
+                <h2 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">Philippine Pavilion</h2>
+                <p class="text-sm md:text-base text-gray-500">Official 2026 Delegation (Scroll sidebar to browse list).</p>
+            </div>
+            <div id="counter" class="bg-emerald-50 text-emerald-700 px-4 md:px-6 py-2 rounded-xl md:rounded-2xl text-xs md:text-sm font-bold border border-emerald-100">
+                29 Companies Listed
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-[32px] md:rounded-[40px] p-2 md:p-6 shadow-inner border border-gray-100 overflow-y-auto max-h-[800px] custom-scrollbar text-left" id="listScrollContainer">
+            <div id="grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 p-2 md:p-4 text-left">
+                <!-- Data populated via JS -->
+            </div>
+            <div id="emptyState" class="hidden text-center py-24 md:py-32">
+                <h3 class="text-xl md:text-2xl font-bold text-gray-800 mb-2">No results found</h3>
+                <button onclick="resetSearch()" class="text-emerald-600 font-bold hover:text-emerald-700 transition-colors underline uppercase text-xs tracking-widest">View all exhibitors</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Live Market Watch -->
+    <section class="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-20 text-left">
+        <div class="flex items-center gap-3 mb-6 px-2">
+            <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+            <h5 class="text-xs font-black uppercase tracking-[0.3em] text-gray-400">Live Market Intelligence (Security Prompts Enabled)</h5>
+        </div>
+        
+        <div class="bg-slate-50/50 rounded-[40px] p-2 overflow-hidden border border-slate-100 mb-8">
+            <div class="ticker-scroll-container">
+                <div class="ticker-animate" id="liveTickerScroll">
+                    <!-- Ticker Cards with Interaction Prompts -->
+                    <div class="mini-chart-card" onclick="triggerNavPrompt('PSE:JFC', 'Jollibee Live Technical')">
+                        <div class="click-capture"></div>
+                        <div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>{"symbol": "PSE:JFC", "width": "100%", "height": "100%", "locale": "en", "dateRange": "1D", "colorTheme": "light", "trendLineColor": "#10b981", "underLineColor": "rgba(16, 185, 129, 0.1)", "isTransparent": false, "autosize": true}</script></div>
+                    </div>
+                    <div class="mini-chart-card" onclick="triggerNavPrompt('PSE:SM', 'SM Investments Technical')">
+                        <div class="click-capture"></div>
+                        <div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>{"symbol": "PSE:SM", "width": "100%", "height": "100%", "locale": "en", "dateRange": "1D", "colorTheme": "light", "trendLineColor": "#10b981", "underLineColor": "rgba(16, 185, 129, 0.1)", "isTransparent": false, "autosize": true}</script></div>
+                    </div>
+                    <div class="mini-chart-card" onclick="triggerNavPrompt('PSE:URC', 'URC Technical Analytics')">
+                        <div class="click-capture"></div>
+                        <div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>{"symbol": "PSE:URC", "width": "100%", "height": "100%", "locale": "en", "dateRange": "1D", "colorTheme": "light", "trendLineColor": "#10b981", "underLineColor": "rgba(16, 185, 129, 0.1)", "isTransparent": false, "autosize": true}</script></div>
+                    </div>
+                    <div class="mini-chart-card" onclick="triggerNavPrompt('PSE:CNPF', 'Century Food Technical')">
+                        <div class="click-capture"></div>
+                        <div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>{"symbol": "PSE:CNPF", "width": "100%", "height": "100%", "locale": "en", "dateRange": "1D", "colorTheme": "light", "trendLineColor": "#10b981", "underLineColor": "rgba(16, 185, 129, 0.1)", "isTransparent": false, "autosize": true}</script></div>
+                    </div>
+                    <!-- Repeat for endless effect -->
+                    <div class="mini-chart-card" onclick="triggerNavPrompt('PSE:JFC', 'Jollibee Live Technical')">
+                        <div class="click-capture"></div>
+                        <div class="tradingview-widget-container"><div class="tradingview-widget-container__widget"></div><script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js" async>{"symbol": "PSE:JFC", "width": "100%", "height": "100%", "locale": "en", "dateRange": "1D", "colorTheme": "light", "trendLineColor": "#10b981", "underLineColor": "rgba(16, 185, 129, 0.1)", "isTransparent": false, "autosize": true}</script></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-[32px] border border-gray-100 shadow-sm overflow-hidden p-6 md:p-10 flex flex-col md:flex-row items-center gap-10">
+            <div class="flex-grow text-center md:text-left px-2">
+                <h4 class="text-2xl font-black text-gray-900 mb-2 tracking-tighter uppercase text-left">Official PSEi Analytics Portal</h4>
+                <p class="text-sm text-gray-500 mb-8 max-w-xl text-left">View real-time indices in our protected environment. Technical displays are read-only for secure tracking.</p>
+                <button onclick="triggerNavPrompt('PSE:PSEI', 'PSEi Technical Analytics Locked View')" class="w-full md:w-auto bg-emerald-600 hover:bg-emerald-700 text-white px-10 py-5 rounded-2xl font-bold transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 uppercase text-xs tracking-widest">
+                    <i class="fas fa-lock text-emerald-200"></i> Open Locked Market View
+                </button>
+            </div>
+            <div class="w-full md:w-[320px] bg-emerald-50 rounded-3xl p-8 border border-emerald-100 relative group overflow-hidden shrink-0 text-left">
+                <div class="flex justify-between items-center mb-6">
+                    <span class="text-[10px] font-black uppercase text-emerald-800 opacity-60">Live Index</span>
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                </div>
+                <div class="text-4xl font-black text-emerald-900 mb-2">7,140.25</div>
+                <div class="text-xs font-bold text-emerald-600 flex items-center gap-1 uppercase tracking-tighter">
+                    <i class="fas fa-caret-up"></i> Performance Index • 2025
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Institutional Directory -->
+    <section id="institutions" class="max-w-7xl mx-auto px-4 md:px-6 py-10 md:py-12 bg-slate-50 rounded-[32px] md:rounded-[40px] mb-16 md:mb-20 text-left">
+        <h5 class="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mb-8 px-4 md:px-6 text-left">Official Institutional Resources Hub</h5>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10 px-4 md:px-6 text-left">
+            <div>
+                <h6 class="text-[11px] md:text-xs font-black text-emerald-900 mb-4 uppercase tracking-tighter font-black">Government Agencies</h6>
+                <ul class="space-y-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                    <li onclick="triggerNavPrompt('https://www.dti.gov.ph', 'DTI Philippines')" class="hover:text-emerald-600 transition-colors cursor-pointer flex items-center gap-2"><i class="fas fa-external-link-alt text-[8px]"></i> DTI Philippines</li>
+                    <li onclick="triggerNavPrompt('https://www.dti.gov.ph/emb', 'DTI-EMB')" class="hover:text-emerald-600 transition-colors cursor-pointer flex items-center gap-2"><i class="fas fa-external-link-alt text-[8px]"></i> Export Marketing Bureau</li>
+                    <li onclick="triggerNavPrompt('https://www.sbcorp.gov.ph', 'SBCorp')" class="hover:text-emerald-600 transition-colors cursor-pointer flex items-center gap-2"><i class="fas fa-external-link-alt text-[8px]"></i> SBCorp Philippines</li>
+                </ul>
+            </div>
+            <div>
+                <h6 class="text-[11px] md:text-xs font-black text-emerald-900 mb-4 uppercase tracking-tighter font-black">Strategic Banking</h6>
+                <ul class="space-y-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                    <li onclick="triggerNavPrompt('https://www.dbp.ph/contact-us/', 'DBP Contact Us')" class="hover:text-emerald-600 transition-colors cursor-pointer flex items-center gap-2 font-black"><i class="fas fa-external-link-alt text-[8px]"></i> Development Bank (DBP)</li>
+                    <li onclick="triggerNavPrompt('https://www.landbank.com', 'LandBank')" class="hover:text-emerald-600 transition-colors cursor-pointer flex items-center gap-2 font-black"><i class="fas fa-external-link-alt text-[8px]"></i> LandBank Philippines</li>
+                    <li onclick="triggerNavPrompt('https://philguarantee.gov.ph', 'PHILGUARANTEE')" class="hover:text-emerald-600 transition-colors cursor-pointer flex items-center gap-2 font-black"><i class="fas fa-external-link-alt text-[8px]"></i> PHILGUARANTEE Corp</li>
+                </ul>
+            </div>
+            <div>
+                <h6 class="text-[11px] md:text-xs font-black text-emerald-900 mb-4 uppercase tracking-tighter whitespace-nowrap font-black">Regional & Global</h6>
+                <ul class="space-y-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                    <li onclick="triggerNavPrompt('https://www.adb.org', 'ADB')" class="hover:text-emerald-600 transition-colors cursor-pointer flex items-center gap-2 font-black"><i class="fas fa-external-link-alt text-[8px]"></i> Asian Development Bank</li>
+                    <li onclick="triggerNavPrompt('https://asean.org', 'ASEAN Secretariat')" class="hover:text-emerald-600 transition-colors cursor-pointer flex items-center gap-2 font-black"><i class="fas fa-external-link-alt text-[8px]"></i> ASEAN Secretariat</li>
+                    <li onclick="triggerNavPrompt('https://www.jica.go.jp/philippine/english/index.html', 'JICA')" class="hover:text-emerald-600 transition-colors cursor-pointer flex items-center gap-2 font-black"><i class="fas fa-external-link-alt text-[8px]"></i> JICA Philippines</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-emerald-950 text-white py-16 md:py-20 px-6 text-center border-t border-emerald-900">
+        <p class="text-xl md:text-2xl font-black mb-2 tracking-tighter uppercase italic text-emerald-400">FOODPhilippines</p>
+        <p class="text-[11px] md:text-base text-emerald-100 font-medium mb-8 md:mb-10 text-center uppercase tracking-tighter">Globalizing the Philippine Food Industry</p>
+        <div class="mb-10 text-center">
+            <button onclick="triggerNavPrompt('https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/center-for-international-trade-expositions-and-missions', 'CITEM Official Profile')" class="bg-white/5 border border-white/10 hover:border-emerald-500 px-8 md:px-10 py-3.5 md:py-4 rounded-xl md:rounded-2xl text-xs md:text-sm font-bold transition-all group uppercase tracking-widest font-black">
+                CITEM Profile <i class="fas fa-external-link-alt ml-2 text-[10px] group-hover:translate-x-1 transition-transform"></i>
+            </button>
+        </div>
+        <p class="text-[9px] md:text-[10px] text-emerald-700 font-black uppercase tracking-[0.4em] text-center font-black">Philippine | 2026 Delegation</p>
+    </footer>
+
+    <script>
+        /* DASHBOARD LOGIC */
+        function updateClock() {
+            const now = new Date();
+            const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            document.getElementById('liveClock').innerText = now.toLocaleDateString('en-US', options).toUpperCase();
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function refreshMarketData() {
+            const icon = document.getElementById('refreshIcon');
+            icon.classList.add('fa-spin');
+            Chart.helpers.each(Chart.instances, (instance) => instance.render());
+            const mockRate = (58.4 + Math.random() * 0.1).toFixed(2);
+            document.getElementById('forexValue').innerText = `1 USD = ${mockRate} PHP`;
+            setTimeout(() => icon.classList.remove('fa-spin'), 1500);
+        }
+
+        /* CHART INITIALIZATION */
+        const exportCtx = document.getElementById('exportChart').getContext('2d');
+        new Chart(exportCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Coconut', 'Bananas', 'Pineapple', 'Processed', 'Sea-based'],
+                datasets: [
+                    { label: '2026 Projection', data: [2.1, 1.3, 0.9, 1.8, 1.1], backgroundColor: '#10b981', borderRadius: 4, barPercentage: 0.4 },
+                    { label: '2024 Actual', data: [1.6, 1.1, 0.7, 1.4, 0.8], backgroundColor: '#d1fae5', borderRadius: 4, barPercentage: 0.4 }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } } }
+        });
+
+        const gdpCtx = document.getElementById('gdpChart').getContext('2d');
+        new Chart(gdpCtx, {
+            type: 'line',
+            data: {
+                labels: ['Oct 25', 'Nov 25', 'Dec 25', 'Jan 26'],
+                datasets: [
+                    { label: 'Trend A', data: [472, 488, 510, 525], borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.05)', fill: true, tension: 0.2, borderWidth: 1 },
+                    { label: 'Trend B', data: [6.4, 6.7, 7.1, 7.4], borderColor: '#fbbf24', tension: 0.2, borderWidth: 1 }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+
+        /* EXHIBITORS DATA */
+        const exhibitors = [
+            { name: "3 Sisters Banana Chips", products: "Premium banana chips", type: "Snacks", desc: "Stand: N2-C12 | Premium chips.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/3-sisters-banana-chips" },
+            { name: "Athena Marketing International", products: "Coffee, energy drinks", type: "Beverages", desc: "Stand: Z6-E50 | Global development.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/athena-marketing-international" },
+            { name: "BV&R Commodities Corporation", products: "Sauces, dairy, snacks", type: "Condiments", desc: "Stand: N2-C68 | Multi-sector exporter.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/bvr-commodities-corporation" },
+            { name: "Century Pacific Food, Inc.", products: "Century Tuna, dairy", type: "FMCG", desc: "Stand: 816 | Philippines' largest branded co.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/century-pacific-food-inc" },
+            { name: "Fisher Farms Inc.", products: "Seafood, frozen fish", type: "Seafood", desc: "Stand: S-B64 | Farm-raised seafood expert.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/fisher-farms-inc" },
+            { name: "Fly Ace Corporation", products: "General FMCG food", type: "FMCG", desc: "Stand: N2-D67 | Leading F&B marketer.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/fly-ace-corporation" },
+            { name: "GALINCO", products: "Biscuits and snacks", type: "Snacks", desc: "Stand: N2-C48 | World-class manufacturer.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/galinco-grand-alphatech-international-corporation" },
+            { name: "Global Foodsolutions, Inc.", products: "Fruit preserves, bakery", type: "FMCG", desc: "Stand: N2-D63 | Premium food manufacturing.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/global-foodsolutions-inc" },
+            { name: "Golden Saba", products: "Saba bananas", type: "Fruits", desc: "Stand: N2-D15 | Specialized in saba banana.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/golden-saba" },
+            { name: "Krystle Exports Philippines Inc.", products: "Food exports", type: "Trading", desc: "Stand: N2-D33 | Export management.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/krystle-exports-philippines-inc-" },
+            { name: "Lionheart Farms", products: "Coconut products", type: "Coconut", desc: "Stand: N2-C16 | Sustainable coconut sap.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/lionheart-farms" },
+            { name: "Marbello Processed Foods Manufacturing", products: "Processed fruit", type: "Fruits", desc: "Stand: N2-C12 | specialized processing.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/marbello-processed-foods-manufacturing" },
+            { name: "Mama Sita's", products: "Mixes and sauces", type: "Condiments", desc: "Stand: N2-C26 | Traditional legacy brand.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/mama-sitas-marigold-manufacturing-corporation" },
+            { name: "Market Reach International Resources Corp", products: "Noodles, dry goods", type: "Trading", desc: "Stand: N2-D23 | Comprehensive trade.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/market-reach-international-resources-corp" },
+            { name: "Mega Prime Foods, Inc.", products: "Canned sardines", type: "FMCG", desc: "Stand: N2-C64 | Innovation in food tech.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/mega-prime-foods-inc" },
+            { name: "Ngosiok Marketing", products: "Rice and wheat noodles", type: "Noodles", desc: "Stand: N2-C62 | Noodle production leader.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/ngosiok-marketing" },
+            { name: "Oleo-Fats, Incorporated", products: "Oils and fats", type: "FMCG", desc: "Stand: N2-D27 | Customized solutions.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/oleo-fats-incorporated" },
+            { name: "P.Togo Corp.", products: "General food exports", type: "Trading", desc: "Stand: N2-D29 | PH export specialist.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/p-togo-corp" },
+            { name: "Pacific Synergy Food & Beverage", products: "Energy drinks", type: "Beverages", desc: "Stand: N2-C44 | Innovation-driven F&B.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/pacific-synergy-food-and-beverage-corp" },
+            { name: "Philippine Cinmic Industrial", products: "Frozen food, seafood", type: "Seafood", desc: "Stand: N2-D11 | Integrated facility.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/philippine-cinmic-industrial-corporation" },
+            { name: "Philippine Grocers Food Exports", products: "Consolidation", type: "Trading", desc: "Stand: N2-D51 | Leading consolidator.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/philippine-grocers-food-exports-inc" },
+            { name: "Pixcel Transglobal Foods, Inc.", products: "Fish sauce, snacks", type: "FMCG", desc: "Stand: N2-C52 | Global distribution.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/pixcel-transglobal-foods-inc" },
+            { name: "PT. Sinar Sosro", products: "Tea products", type: "Beverages", desc: "Stand: Z5-B5 | tea experts.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/pt-sinar-sosro-gunung-slamat" },
+            { name: "Q-Phil International Trading", products: "Noodles, dairy", type: "Noodles", desc: "Stand: N2-D71 | World-class noodles.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/q-phil-international-trading" },
+            { name: "Sandpiper Spices", products: "Spices, seasonings", type: "Condiments", desc: "Stand: N2-C30 | Quality processing.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/sandpiper-spices-and-condiments-corporation" },
+            { name: "Sees International", products: "Banana chips", type: "Snacks", desc: "Stand: N2-C20 | Premium chips mfg.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/sees-international-food-manufacturing-corporation" },
+            { name: "SL Agritech Corporation", products: "Doña Maria Rice", type: "Rice", desc: "Stand: N2-D47 | Hybrid rice tech leader.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/sl-agritech-corporation" },
+            { name: "Sonya's Secret Garden", products: "Specialty items", type: "FMCG", desc: "Stand: N2-C8 | Unique delicacies.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/sonyas-secret-garden" },
+            { name: "Yan Yan International Philippines", products: "Snacks, savory", type: "Snacks", desc: "Stand: N2-D19 | Fast-growing exporter.", url: "https://exhibitors.gulfood.com/gulfood-2026/Exhibitors/ExbDetails/yan-yan-international-philippines-inc" }
+        ];
+
+        const grid = document.getElementById('grid');
+        function render(data) {
+            const frag = document.createDocumentFragment();
+            data.forEach(ex => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-6 md:p-10 rounded-[30px] md:rounded-[40px] shadow-sm card-anim flex flex-col h-full group text-left';
+                card.onclick = () => triggerNavPrompt(ex.url, ex.name);
+                card.innerHTML = `<div class="flex justify-between items-start mb-4"><span class="text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100">${ex.type}</span></div><h3 class="text-xl md:text-2xl font-extrabold text-gray-900 mb-2 leading-tight text-left">${ex.name}</h3><p class="text-gray-500 text-xs md:text-sm mb-6 flex-grow text-left">${ex.desc}</p><div class="pt-6 border-t border-gray-50 text-left"><p class="text-emerald-700 font-bold text-xs line-clamp-2 text-left font-black">${ex.products}</p></div>`;
+                frag.appendChild(card);
+            });
+            grid.innerHTML = '';
+            grid.appendChild(frag);
+            document.getElementById('emptyState').classList.toggle('hidden', data.length > 0);
+        }
+
+        /* NAV LOGIC */
+        let pendingUrl = '', pendingLabel = '';
+        function triggerNavPrompt(u, l) {
+            pendingUrl = u.startsWith('PSE:') ? `https://www.tradingview-widget.com/embed-widget/technical-analysis/?symbol=${encodeURIComponent(u)}&interval=1D&width=100%25&height=100%25&colorTheme=light` : u;
+            pendingLabel = l;
+            document.getElementById('navConfirmation').classList.remove('hidden');
+            document.getElementById('navConfirmation').classList.add('flex');
+        }
+        function hideNavPrompt() { document.getElementById('navConfirmation').classList.add('hidden'); document.getElementById('navConfirmation').classList.remove('flex'); }
+        function confirmEntry() { hideNavPrompt(); openOverlay(pendingUrl, pendingLabel); }
+
+        function openOverlay(u, n) {
+            document.getElementById('overlayLabel').innerText = n;
+            document.getElementById('externalFrame').src = u;
+            document.getElementById('siteOverlay').classList.remove('hidden');
+            document.getElementById('siteOverlay').classList.add('flex');
+            document.getElementById('liveTickerScroll').classList.add('paused');
+            setTimeout(() => { document.getElementById('siteOverlay').style.opacity = '1'; }, 50);
+            document.body.style.overflow = 'hidden'; 
+        }
+
+        function showConfirmation() { document.getElementById('closeConfirmation').classList.remove('hidden'); document.getElementById('closeConfirmation').classList.add('flex'); }
+        function hideConfirmation() { document.getElementById('closeConfirmation').classList.add('hidden'); document.getElementById('closeConfirmation').classList.remove('flex'); }
+        function executeClose() { 
+            hideConfirmation(); 
+            document.getElementById('siteOverlay').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('siteOverlay').classList.add('hidden');
+                document.getElementById('externalFrame').src = ''; 
+                document.body.style.overflow = 'auto'; 
+                document.getElementById('liveTickerScroll').classList.remove('paused');
+            }, 350);
+        }
+
+        function slowScrollToTop() {
+            const p = document.documentElement.scrollTop || document.body.scrollTop;
+            if (p > 1) { window.requestAnimationFrame(slowScrollToTop); window.scrollTo(0, p - (p / 30) - 1); }
+            else { window.scrollTo(0, 0); }
+        }
+
+        window.addEventListener('scroll', () => { document.getElementById('backToTop').classList.toggle('show', window.scrollY > 600); });
+        document.getElementById('exhibitorSearch').addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase();
+            const f = exhibitors.filter(ex => ex.name.toLowerCase().includes(q) || ex.products.toLowerCase().includes(q) || ex.type.toLowerCase().includes(q));
+            render(f);
+            document.getElementById('counter').innerText = `${f.length} Companies Available`;
+        });
+
+        render(exhibitors);
+    </script>
+</body>
+</html>
